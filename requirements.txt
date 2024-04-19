@@ -3,6 +3,8 @@ torchvision==0.15.2
 opencv-python
 rich
 tyro
+tqdm
 torchmetrics
 numpy==1.21.0
-nerfstudio
+plyfile
+pillow
