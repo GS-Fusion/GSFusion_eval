@@ -53,31 +53,31 @@ def rgb_eval(data: Path):
 
     for batch_index in track(range(0, num_frames, BATCH_SIZE)):
         CONSOLE.print(
-            f"[bold yellow]Evaluating batch {batch_index // BATCH_SIZE} / {num_frames//BATCH_SIZE}"
+            f"[bold yellow]Evaluating batch {batch_index // BATCH_SIZE} / {num_frames // BATCH_SIZE}"
         )
         batch_frames = image_list[batch_index : batch_index + BATCH_SIZE]
-        predicted_rgb = []
+        rendered_rgb = []
         gt_rgb = []
 
         for i in batch_frames:
             render_img = cv2.imread(os.path.join(render_path, i)) / 255
-            origin_img = cv2.imread(os.path.join(gt_path, i)) / 255
-            origin_img = F.to_tensor(origin_img).to(torch.float32)
             render_img = F.to_tensor(render_img).to(torch.float32)
+            origin_img = cv2.imread(os.path.join(gt_path, i)) / 255
+            origin_img = F.to_tensor(origin_img).to(torch.float32)           
 
-            predicted_rgb.append(render_img)
+            rendered_rgb.append(render_img)
             gt_rgb.append(origin_img)
 
-        predicted_image = torch.stack(predicted_rgb, 0)
-        gt_image = torch.stack(gt_rgb, 0)
+        rendered_images = torch.stack(rendered_rgb, 0)
+        gt_images = torch.stack(gt_rgb, 0)
 
-        mse_score = mse(predicted_image, gt_image)
+        mse_score = mse(rendered_images, gt_images)
         mse_score_batch.append(mse_score)
-        psnr_score = psnr(predicted_image, gt_image)
+        psnr_score = psnr(rendered_images, gt_images)
         psnr_score_batch.append(psnr_score)
-        ssim_score = ssim(predicted_image, gt_image)
+        ssim_score = ssim(rendered_images, gt_images)
         ssim_score_batch.append(ssim_score)
-        lpips_score = lpips(predicted_image, gt_image)
+        lpips_score = lpips(rendered_images, gt_images)
         lpips_score_batch.append(lpips_score)
 
     mean_scores = {
@@ -86,12 +86,13 @@ def rgb_eval(data: Path):
         "ssim": float(torch.stack(ssim_score_batch).mean().item()),
         "lpips": float(torch.stack(lpips_score_batch).mean().item()),
     }
-    print(list(mean_scores.keys()))
-    print(list(mean_scores.values()))
 
-    with open(os.path.join(data, "metrics.json"), "w") as outFile:
+    for key, value in mean_scores.items():
+        print(f"{key}: {value}")
+
+    with open(os.path.join(data, "metrics.json"), "w") as file:
         print(f"Saving results to {os.path.join(data, 'metrics.json')}")
-        json.dump(mean_scores, outFile, indent=2)
+        json.dump(mean_scores, file, indent=2)
 
 
 @torch.no_grad()

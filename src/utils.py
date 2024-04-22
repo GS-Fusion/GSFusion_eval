@@ -391,5 +391,18 @@ def getProjectionMatrix(znear, zfar, fovX, fovY):
     return P
 
 
+def getProjectionMatrix2(W, H, fx, fy, cx, cy):
+    P = torch.zeros(4, 4)
+
+    P[0, 0] = 2 * fx / W
+    P[1, 1] = 2 * fy / H
+    P[0, 2] = 2 * (cx / W) - 1
+    P[1, 2] = 2 * (cy / H) - 1
+    P[2, 2] = 0
+    P[2, 3] = 0
+    P[3, 2] = 1
+    return P
+
+
 def focal2fov(focal, pixels):
     return 2 * math.atan(pixels / (2 * focal))
