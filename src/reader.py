@@ -15,6 +15,7 @@ import json
 from typing import NamedTuple
 
 import numpy as np
+from tqdm import tqdm
 from PIL import Image
 
 from src.utils import focal2fov
@@ -79,24 +80,15 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
 
 
 def readColmapSceneInfo(path, images, eval):
-    cameras_extrinsic_file = os.path.join(path, "train/sparse/0", "images.bin")
-    cameras_intrinsic_file = os.path.join(path, "train/sparse/0", "cameras.bin")
+    cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
+    cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
     cam_extrinsics = read_extrinsics_binary(cameras_extrinsic_file)
     cam_intrinsics = read_intrinsics_binary(cameras_intrinsic_file)
     reading_dir = "images" if images == None else images
-    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, "train", reading_dir))
+    cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir))
     cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
     train_cam_infos = cam_infos
-
-    if eval:
-        test_cameras_extrinsic_file = os.path.join(path, "test/sparse/0", "images.bin")
-        test_cameras_intrinsic_file = os.path.join(path, "test/sparse/0", "cameras.bin")
-        test_cam_extrinsics = read_extrinsics_binary(test_cameras_extrinsic_file)
-        test_cam_intrinsics = read_intrinsics_binary(test_cameras_intrinsic_file)
-        test_cam_infos_unsorted = readColmapCameras(cam_extrinsics=test_cam_extrinsics, cam_intrinsics=test_cam_intrinsics, images_folder=os.path.join(path, "test", reading_dir))
-        test_cam_infos = sorted(test_cam_infos_unsorted.copy(), key = lambda x : x.image_name)
-    else:
-        test_cam_infos = []
+    test_cam_infos = []
 
     scene_info = SceneInfo(train_cameras=train_cam_infos,
                            test_cameras=test_cam_infos)
@@ -131,11 +123,8 @@ def readScanNetppSceneInfo(path, images, eval):
     test_cam_infos = []
     for split_type in split_types:
         cam_infos = []
-        for idx, image_name in enumerate(splits[split_type]):
-            sys.stdout.write('\r')
-            sys.stdout.write("Reading {} camera {}/{}".format(split_type, idx+1, len(splits[split_type])))
-            sys.stdout.flush()
-
+        print(f"Reading {split_type} cameras")
+        for image_name in tqdm(splits[split_type]):
             assert image_name == gt["frames"][cnt]["file_path"], "Unmatched images and poses!"
 
             image_path = os.path.join(path, images, image_name)
