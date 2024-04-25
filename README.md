@@ -28,7 +28,7 @@ python setup.py install
 
 First render training/novel views using the trained model
 ```
-python render.py -m <path to trained model> --iteration <#iters> --data_device cuda
+python render.py -m <path to trained model> --iteration <#iters> --dataset_type <supported dataset type> --data_device cuda
 ```
 
 Then calculate error metrics of rendered images

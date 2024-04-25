@@ -138,7 +138,7 @@ class Scene:
 
     gaussians : GaussianModel
 
-    def __init__(self, args : ModelParams, gaussians : GaussianModel, load_iteration=-1, shuffle=True, resolution_scales=[1.0]):
+    def __init__(self, dataset_type : str, args : ModelParams, gaussians : GaussianModel, load_iteration=-1, shuffle=True, resolution_scales=[1.0]):
         """b
         :param path: Path to colmap scene main folder.
         """
@@ -155,10 +155,10 @@ class Scene:
         self.train_cameras = {}
         self.test_cameras = {}
 
-        if os.path.exists(os.path.join(args.source_path, "sparse")):
-            scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.eval)
-        else:
-            assert False, "Could not recognize scene type!"
+        try:
+            scene_info = sceneLoadTypeCallbacks[dataset_type](args.source_path, args.images, args.eval)
+        except:
+            raise TypeError("Could not recognize scene type!")
 
         if shuffle:
             random.shuffle(scene_info.train_cameras)  # Multi-res consistent random shuffling

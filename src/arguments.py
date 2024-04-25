@@ -85,10 +85,9 @@ def get_combined_args(parser: ArgumentParser):
         cfgfilepath = os.path.join(args_cmdline.model_path, "cfg_args")
         print("Looking for config file in", cfgfilepath)
         with open(cfgfilepath) as cfg_file:
-            print("Config file found at: {}".format(cfgfilepath))
             cfgfile_string = cfg_file.read()
     except TypeError:
-        print("Config file not found at: {}".format(cfgfilepath))
+        print("Config file cannot be found at: {}".format(cfgfilepath))
         pass
     args_cfgfile = eval(cfgfile_string)
 
