@@ -31,7 +31,12 @@ First render training/novel views using the trained model
 python render.py -m <path to trained model> --iteration <#iters> --dataset_type <supported dataset type> --data_device cuda
 ```
 
-Then calculate error metrics of rendered images
+Then calculate metrics for rendered images
 ```
 python eval.py --data <path to rendered image folder> --no-eval-depth
+```
+
+To compute the accuracy of point cloud extracted from the trained model, use the following command
+```
+python eval_pcd.py -m <path to trained model> --iteration <#iters>
 ```
