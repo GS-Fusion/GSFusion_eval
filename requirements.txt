@@ -8,3 +8,5 @@ torchmetrics
 numpy==1.21.0
 plyfile
 pillow
+scipy
+trimesh
