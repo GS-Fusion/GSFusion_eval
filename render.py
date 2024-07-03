@@ -34,6 +34,7 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
         gt = view.original_image[0:3, :, :]
         torchvision.utils.save_image(rendering, os.path.join(render_path, '{0:05d}'.format(idx) + ".png"))
         torchvision.utils.save_image(gt, os.path.join(gts_path, '{0:05d}'.format(idx) + ".png"))
+        view.deleteImage()
 
 
 def render_sets(dataset_type : str, model : ModelParams, iteration : int, pipeline : PipelineParams, skip_train : bool, skip_test : bool):

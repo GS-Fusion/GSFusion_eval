@@ -246,6 +246,9 @@ class Camera(nn.Module):
         else:
             self.original_image *= torch.ones((1, self.image_height, self.image_width), device=self.data_device)
     
+    def deleteImage(self):
+        del self.original_image
+    
 
 def loadCam(args, cam_info, resolution_scale):
     orig_w = cam_info.width
