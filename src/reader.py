@@ -107,20 +107,27 @@ def readScanNetppSceneInfo(path, images, eval):
     FovY = focal2fov(fy, height)
 
     gt["frames"] = sorted(gt["frames"], key = lambda x : x["file_path"])
+    if eval:
+        gt["test_frames"] = sorted(gt["test_frames"], key = lambda x : x["file_path"])
 
     if eval:
         split_types = ["train", "test"]
     else:
         split_types = ["train"]
 
-    cnt = 0
     train_cam_infos = []
     test_cam_infos = []
     for split_type in split_types:
-        cam_infos = []
         print(f"Reading {split_type} cameras")
-        for image_name in tqdm(splits[split_type]):
-            assert image_name == gt["frames"][cnt]["file_path"], "Unmatched images and poses!"
+
+        cam_infos = []
+        if split_type == "train":
+            frames = gt["frames"]
+        else:
+            frames = gt["test_frames"]
+
+        for i, image_name in tqdm(enumerate(splits[split_type])):
+            assert image_name == frames[i]["file_path"], "Unmatched images and poses!"
 
             image_path = os.path.join(path, images, image_name)
 
@@ -128,7 +135,7 @@ def readScanNetppSceneInfo(path, images, eval):
             # ScanNet++ uses the OpenGL/Blender (and original NeRF) coordinate convention for cameras. 
             # +X is right, +Y is up, and +Z is pointing back and away from the camera. -Z is the look-at direction. 
             # Other codebases may use the COLMAP/OpenCV convention, where the Y and Z axes are flipped from ours but the +X axis remains the same.
-            T_C2W = np.array(gt["frames"][cnt]["transform_matrix"])
+            T_C2W = np.array(frames[i]["transform_matrix"])
             P = np.eye(4)
             P[1, 1] = -1
             P[2, 2] = -1
@@ -139,7 +146,6 @@ def readScanNetppSceneInfo(path, images, eval):
 
             cam_info = CameraInfo(R=R, T=T, fx=fx, fy=fy, cx=cx, cy=cy, width=width, height=height, FovX=FovX, FovY=FovY, image_path=image_path)
             cam_infos.append(cam_info)
-            cnt += 1
 
         if split_type == "train":
             train_cam_infos = cam_infos

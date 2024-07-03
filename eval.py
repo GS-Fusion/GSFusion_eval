@@ -25,7 +25,6 @@ from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 from src.utils import DepthMetrics, depth_path_to_tensor
 
 CONSOLE = Console(width=120)
-BATCH_SIZE = 20
 
 
 @torch.no_grad()
@@ -48,36 +47,22 @@ def rgb_eval(data: Path):
     lpips_score_batch = []
 
     CONSOLE.print(
-        f"[bold green]Batchifying and evaluating a total of {num_frames} rgb frames"
+        f"[bold green]Evaluating a total of {num_frames} rgb frames"
     )
 
-    for batch_index in track(range(0, num_frames, BATCH_SIZE)):
-        CONSOLE.print(
-            f"[bold yellow]Evaluating batch {batch_index // BATCH_SIZE} / {num_frames // BATCH_SIZE}"
-        )
-        batch_frames = image_list[batch_index : batch_index + BATCH_SIZE]
-        rendered_rgb = []
-        gt_rgb = []
+    for i in track(range(0, num_frames)):
+        rendered_image = cv2.imread(os.path.join(render_path, image_list[i])) / 255
+        rendered_image = F.to_tensor(rendered_image).to(torch.float32).unsqueeze(0)
+        gt_image = cv2.imread(os.path.join(gt_path, image_list[i])) / 255
+        gt_image = F.to_tensor(gt_image).to(torch.float32).unsqueeze(0)           
 
-        for i in batch_frames:
-            render_img = cv2.imread(os.path.join(render_path, i)) / 255
-            render_img = F.to_tensor(render_img).to(torch.float32)
-            origin_img = cv2.imread(os.path.join(gt_path, i)) / 255
-            origin_img = F.to_tensor(origin_img).to(torch.float32)           
-
-            rendered_rgb.append(render_img)
-            gt_rgb.append(origin_img)
-
-        rendered_images = torch.stack(rendered_rgb, 0)
-        gt_images = torch.stack(gt_rgb, 0)
-
-        mse_score = mse(rendered_images, gt_images)
+        mse_score = mse(rendered_image, gt_image)
         mse_score_batch.append(mse_score)
-        psnr_score = psnr(rendered_images, gt_images)
+        psnr_score = psnr(rendered_image, gt_image)
         psnr_score_batch.append(psnr_score)
-        ssim_score = ssim(rendered_images, gt_images)
+        ssim_score = ssim(rendered_image, gt_image)
         ssim_score_batch.append(ssim_score)
-        lpips_score = lpips(rendered_images, gt_images)
+        lpips_score = lpips(rendered_image, gt_image)
         lpips_score_batch.append(lpips_score)
 
     mean_scores = {
