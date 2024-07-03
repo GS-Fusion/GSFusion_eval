@@ -7,6 +7,7 @@ from datetime import datetime
 
 import cv2
 import numpy as np
+from PIL import Image
 from scipy.spatial import cKDTree
 import torch
 from torch import nn
@@ -202,7 +203,7 @@ def searchForMaxIteration(folder):
 
 
 class Camera(nn.Module):
-    def __init__(self, R, T, fx, fy, cx, cy, FoVx, FoVy, image, gt_alpha_mask, image_name,
+    def __init__(self, R, T, fx, fy, cx, cy, FoVx, FoVy, width, height, image_path, resolution,
                  trans=np.array([0.0, 0.0, 0.0]), scale=1.0, data_device = "cuda"):
         super(Camera, self).__init__()
 
@@ -210,7 +211,10 @@ class Camera(nn.Module):
         self.T = T
         self.FoVx = FoVx
         self.FoVy = FoVy
-        self.image_name = image_name
+        self.image_width = width
+        self.image_height = height
+        self.image_path = image_path
+        self.resolution = resolution
 
         try:
             self.data_device = torch.device(data_device)
@@ -218,15 +222,6 @@ class Camera(nn.Module):
             print(e)
             print(f"[Warning] Custom device {data_device} failed, fallback to default cuda device" )
             self.data_device = torch.device("cuda")
-
-        self.original_image = image.clamp(0.0, 1.0).to(self.data_device)
-        self.image_width = self.original_image.shape[2]
-        self.image_height = self.original_image.shape[1]
-
-        if gt_alpha_mask is not None:
-            self.original_image *= gt_alpha_mask.to(self.data_device)
-        else:
-            self.original_image *= torch.ones((1, self.image_height, self.image_width), device=self.data_device)
 
         self.trans = trans
         self.scale = scale
@@ -236,9 +231,25 @@ class Camera(nn.Module):
         self.full_proj_transform = (self.world_view_transform.unsqueeze(0).bmm(self.projection_matrix.unsqueeze(0))).squeeze(0)
         self.camera_center = self.world_view_transform.inverse()[3, :3]
 
+    def readImage(self):
+        self.original_image = Image.open(self.image_path)
+        resized_image_rgb = PILtoTorch(self.original_image, self.resolution)
+        self.original_image = resized_image_rgb[:3, ...]
+        loaded_mask = None
+        if resized_image_rgb.shape[1] == 4:
+            loaded_mask = resized_image_rgb[3:4, ...]
+        
+        self.original_image = self.original_image.clamp(0.0, 1.0).to(self.data_device)
+
+        if loaded_mask is not None:
+            self.original_image *= loaded_mask.to(self.data_device)
+        else:
+            self.original_image *= torch.ones((1, self.image_height, self.image_width), device=self.data_device)
+    
 
 def loadCam(args, cam_info, resolution_scale):
-    orig_w, orig_h = cam_info.image.size
+    orig_w = cam_info.width
+    orig_h = cam_info.height
 
     if args.resolution in [1, 2, 4, 8]:
         resolution = round(orig_w/(resolution_scale * args.resolution)), round(orig_h/(resolution_scale * args.resolution))
@@ -259,18 +270,9 @@ def loadCam(args, cam_info, resolution_scale):
         scale = float(global_down) * float(resolution_scale)
         resolution = (int(orig_w / scale), int(orig_h / scale))
 
-    resized_image_rgb = PILtoTorch(cam_info.image, resolution)
-
-    gt_image = resized_image_rgb[:3, ...]
-    loaded_mask = None
-
-    if resized_image_rgb.shape[1] == 4:
-        loaded_mask = resized_image_rgb[3:4, ...]
-
     return Camera(R=cam_info.R, T=cam_info.T, fx=cam_info.fx, fy=cam_info.fy, cx=cam_info.cx, cy=cam_info.cy,
-                  FoVx=cam_info.FovX, FoVy=cam_info.FovY, 
-                  image=gt_image, gt_alpha_mask=loaded_mask,
-                  image_name=cam_info.image_name, data_device=args.data_device)
+                  FoVx=cam_info.FovX, FoVy=cam_info.FovY, width=orig_w, height=orig_h, image_path=cam_info.image_path, resolution=resolution, 
+                  data_device=args.data_device)
 
 
 def cameraList_from_camInfos(cam_infos, resolution_scale, args):

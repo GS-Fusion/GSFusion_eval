@@ -16,7 +16,7 @@ from typing import NamedTuple
 
 import numpy as np
 from tqdm import tqdm
-from PIL import Image
+from scipy.spatial.transform import Rotation
 
 from src.utils import focal2fov
 from src.colmap import qvec2rotmat, read_extrinsics_binary, read_intrinsics_binary
@@ -33,9 +33,7 @@ class CameraInfo(NamedTuple):
     height: int
     FovX: float
     FovY: float
-    image: np.array
     image_path: str
-    image_name: str
 
 
 class SceneInfo(NamedTuple):
@@ -69,11 +67,8 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, images_folder):
             assert False, "Colmap camera model not handled: only undistorted datasets (PINHOLE cameras) supported!"
 
         image_path = os.path.join(images_folder, os.path.basename(extr.name))
-        image_name = os.path.basename(image_path).split(".")[0]
-        image = Image.open(image_path)
 
-        cam_info = CameraInfo(R=R, T=T, fx=fx, fy=fy, cx=cx, cy=cy, width=width, height=height, FovX=FovX, FovY=FovY,
-                              image=image, image_path=image_path, image_name=image_name)
+        cam_info = CameraInfo(R=R, T=T, fx=fx, fy=fy, cx=cx, cy=cy, width=width, height=height, FovX=FovX, FovY=FovY, image_path=image_path)
         cam_infos.append(cam_info)
     sys.stdout.write('\n')
     return cam_infos
@@ -86,7 +81,7 @@ def readColmapSceneInfo(path, images, eval):
     cam_intrinsics = read_intrinsics_binary(cameras_intrinsic_file)
     reading_dir = "images" if images == None else images
     cam_infos_unsorted = readColmapCameras(cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, images_folder=os.path.join(path, reading_dir))
-    cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
+    cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_path)
     train_cam_infos = cam_infos
     test_cam_infos = []
 
@@ -128,8 +123,6 @@ def readScanNetppSceneInfo(path, images, eval):
             assert image_name == gt["frames"][cnt]["file_path"], "Unmatched images and poses!"
 
             image_path = os.path.join(path, images, image_name)
-            image_name = image_name.split('.')[0]
-            image = Image.open(image_path)
 
             # Coordinate convensions
             # ScanNet++ uses the OpenGL/Blender (and original NeRF) coordinate convention for cameras. 
@@ -144,8 +137,7 @@ def readScanNetppSceneInfo(path, images, eval):
             R = T_W2C[:3, :3]
             T = T_W2C[:3, 3]
 
-            cam_info = CameraInfo(R=R, T=T, fx=fx, fy=fy, cx=cx, cy=cy, width=width, height=height, FovX=FovX, FovY=FovY,
-                                  image=image, image_path=image_path, image_name=image_name)
+            cam_info = CameraInfo(R=R, T=T, fx=fx, fy=fy, cx=cx, cy=cy, width=width, height=height, FovX=FovX, FovY=FovY, image_path=image_path)
             cam_infos.append(cam_info)
             cnt += 1
 
@@ -159,7 +151,110 @@ def readScanNetppSceneInfo(path, images, eval):
     return scene_info
 
 
+def readARKitScenesInfo(path, images, eval):
+    if (not os.path.exists("/tmp/arkitscenes_gt.txt")):
+        raise FileExistsError("There is no such file: /tmp/arkitscenes_gt.txt")
+    with open("/tmp/arkitscenes_gt.txt", 'r') as file: 
+        gt_infos = file.readlines()
+    
+    intrinsics_fname = gt_infos[2].strip().split()[2]
+    intrinsics_fname = intrinsics_fname.replace("lowres_wide", "lowres_wide_intrinsics")
+    intrinsics_fname = intrinsics_fname.replace("png", "pincam")
+    with open(intrinsics_fname, 'r') as file:
+        intrinsics = file.readline()
+        intrinsics = intrinsics.strip().split()
+
+    width = int(intrinsics[0])
+    height = int(intrinsics[1])
+    fx = float(intrinsics[2])
+    fy = float(intrinsics[3])
+    cx = float(intrinsics[4])
+    cy = float(intrinsics[5])
+    FovX = focal2fov(fx, width)
+    FovY = focal2fov(fy, height)
+
+    train_cam_infos = []
+    for gt_info in gt_infos:
+        if gt_info.startswith('#'):
+            continue
+        gt_info = gt_info.strip().split()
+        image_path = gt_info[2]
+
+        tx = float(gt_info[4])
+        ty = float(gt_info[5])
+        tz = float(gt_info[6])
+        qx = float(gt_info[7])
+        qy = float(gt_info[8])
+        qz = float(gt_info[9])
+        qw = float(gt_info[10])
+
+        t_wc = np.array([tx, ty, tz])
+        q_wc = np.array([qx, qy, qz, qw])
+        
+        R_wc = Rotation.from_quat(q_wc).as_matrix()
+        R_cw = R_wc.T
+        t_cw = -R_cw @ t_wc
+
+        cam_info = CameraInfo(R=R_cw, T=t_cw, fx=fx, fy=fy, cx=cx, cy=cy, width=width, height=height, FovX=FovX, FovY=FovY, image_path=image_path)
+        train_cam_infos.append(cam_info)
+    
+    scene_info = SceneInfo(train_cameras=train_cam_infos,
+                           test_cameras=[])
+    return scene_info
+
+
+def readReplicaSceneInfo(path, images, eval):
+    parent_path = os.path.dirname(path)
+    intrinsics_path = os.path.join(parent_path, "cam_params.json")
+    with open(intrinsics_path, 'r') as file:
+        intrinsics = json.load(file)
+    width = intrinsics["camera"]["w"]
+    height = intrinsics["camera"]["h"]
+    fx = intrinsics["camera"]["fx"]
+    fy = intrinsics["camera"]["fy"]
+    cx = intrinsics["camera"]["cx"]
+    cy = intrinsics["camera"]["cy"]
+    FovX = focal2fov(fx, width)
+    FovY = focal2fov(fy, height)
+
+    data_path = os.path.join(path, images)
+    all_filenames = os.listdir(data_path)
+    frame_filenames = [f for f in all_filenames if f.startswith("frame")]
+    frame_filenames.sort()
+
+    gt_path = os.path.join(path, "traj.txt")
+    if (not os.path.exists(gt_path)):
+        raise FileExistsError(f"There is no such file: {gt_path}")   
+    with open(gt_path, 'r') as file: 
+        gt_infos = file.readlines()
+    
+    assert len(gt_infos) == len(frame_filenames), "Unmatched images and poses!"
+    
+    train_cam_infos = []
+    for i, gt_info in enumerate(gt_infos):
+        image_path = os.path.join(data_path, frame_filenames[i])
+        gt_info = gt_info.strip().split()
+
+        R_wc = np.array([[float(gt_info[0]), float(gt_info[1]), float(gt_info[2])],
+                         [float(gt_info[4]), float(gt_info[5]), float(gt_info[6])],
+                         [float(gt_info[8]), float(gt_info[9]), float(gt_info[10])]])
+        R_wc = Rotation.from_matrix(R_wc).as_matrix()
+        t_wc = np.array([float(gt_info[3]), float(gt_info[7]), float(gt_info[11])])
+
+        R_cw = R_wc.T
+        t_cw = -R_cw @ t_wc
+
+        cam_info = CameraInfo(R=R_cw, T=t_cw, fx=fx, fy=fy, cx=cx, cy=cy, width=width, height=height, FovX=FovX, FovY=FovY, image_path=image_path)
+        train_cam_infos.append(cam_info)
+    
+    scene_info = SceneInfo(train_cameras=train_cam_infos,
+                           test_cameras=[])
+    return scene_info
+
+
 sceneLoadTypeCallbacks = {
     "colmap": readColmapSceneInfo,
-    "scannetpp": readScanNetppSceneInfo
+    "scannetpp": readScanNetppSceneInfo,
+    "replica": readReplicaSceneInfo,
+    "arkitscenes": readARKitScenesInfo
 }
