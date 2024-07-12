@@ -139,7 +139,7 @@ def readScanNetppSceneInfo(path, images, eval):
             P = np.eye(4)
             P[1, 1] = -1
             P[2, 2] = -1
-            T_C2W = np.dot(P, np.dot(T_C2W, P.transpose()))
+            T_C2W = np.dot(T_C2W, P)
             T_W2C = np.linalg.inv(T_C2W)
             R = T_W2C[:3, :3]
             T = T_W2C[:3, 3]
