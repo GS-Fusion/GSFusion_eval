@@ -94,7 +94,7 @@ def readScanNetppSceneInfo(path, images, eval):
     with open(os.path.join(path, "train_test_lists.json"), 'r') as split_f:
         splits = json.load(split_f)
 
-    with open(os.path.join(path, "nerfstudio/transforms_undistorted.json"), 'r') as gt_f:
+    with open(os.path.join(path, "nerfstudio/transforms_undistorted_2.json"), 'r') as gt_f:
         gt = json.load(gt_f)
     
     fx = gt["fl_x"]
