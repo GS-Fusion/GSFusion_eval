@@ -57,7 +57,7 @@ if __name__ == "__main__":
     parser = ArgumentParser(description="Testing script parameters")
     model = ModelParams(parser, sentinel=True)
     pipeline = PipelineParams(parser)
-    parser.add_argument("--dataset_type", default="colmap", type=str, choices=["colmap", "scannetpp", "replica", "arkitscenes", "tum_rgbd"])
+    parser.add_argument("--dataset_type", default="colmap", type=str, choices=["colmap", "scannetpp", "replica"])
     parser.add_argument("--iteration", default=-1, type=int)
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
