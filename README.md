@@ -44,13 +44,13 @@ First render training/novel views using the trained model:
 ```
 python render.py -m <model path> --iteration <#iters> --dataset_type <supported data type> --data_device cuda
 ```
-**[Note]** You can evaluate any iterations that you store in the `point_cloud` folder by replacing `<#iters>` with the actual iteration number. This evaluation system currently supports three types of data: Colmap(`colmap`), ScanNet++(`scannetpp`) and Replica(`replica`). If you want to render novel views (e.g. in ScanNet++) for evaluation, you need to set `eval=True` in `cfg_args`. This command will automatically generate `train` and `test` (optionally) folders under the `<model path>` which stores the rendered images and ground truth images.
+*To evaluate any iterations stored in the `point_cloud` folder, replace `<#iters>` with the actual iteration number. The evaluation system currently supports data from three types of data: Colmap (`colmap`), ScanNet++ (`scannetpp`), and Replica (`replica`). If you want to render novel views (e.g., in ScanNet++) for evaluation, make sure to set `eval=True` in `cfg_args`. This command will automatically generate `train` and `test` (optional) folders under the `<model path>`, which store the rendered images and ground truth images.*
 
 Then calculate metrics for rendered images:
 ```
-python eval.py --data <path to train/test folder>
+python eval.py --data <training/novel view path>
 ```
-**[Note]** This command will compute PSNR, SSIM and LPIPS for rendered images and record the results in `metrics.json` in the same data path.
+*This command will calculate PSNR, SSIM, and LPIPS for rendered images and save the results in `metrics.json` within the same data path.*
 
 Finally, the file structure is as follows:
 ```bash
@@ -73,7 +73,14 @@ Finally, the file structure is as follows:
         └── metrics.json
 ```
 
-To compute the accuracy of point cloud extracted from the trained model (GSFusion only), use the following command
+To compute the accuracy of point cloud extracted from the trained model (**for GSFusion only**), use the following command
 ```
 python eval_pcd.py -m <model path> --iteration <#iters>
 ```
+
+## Acknowledgements
+
+This project has benefited a lot from the contributions of the following open-source projects:
+- [GO-Surf](https://github.com/JingwenWang95/go-surf)
+- [DN-Splatter](https://github.com/maturk/dn-splatter)
+- [3D Gaussian Splatting](https://github.com/graphdeco-inria/gaussian-splatting)
